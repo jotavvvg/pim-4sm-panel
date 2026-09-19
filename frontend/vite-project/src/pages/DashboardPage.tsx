@@ -124,7 +124,7 @@ export function DashboardPage() {
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="turma" tick={{ fill: '#cbd5e1', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#cbd5e1', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#cbd5e1', fontSize: 12 }} allowDecimals={false} />
               <Tooltip
                 cursor={{ fill: 'rgba(167, 139, 250, 0.12)' }}
                 contentStyle={{
