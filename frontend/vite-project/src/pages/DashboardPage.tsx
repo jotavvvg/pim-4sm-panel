@@ -17,6 +17,7 @@ const chartColors = ['#8b5cf6', '#a78bfa', '#60a5fa', '#c084fc', '#818cf8'];
 export function DashboardPage() {
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -113,11 +114,19 @@ export function DashboardPage() {
         <div className="chart-panel">
           <h4>Alunos por turma</h4>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={metrics.alunosPorTurma}>
+            <BarChart
+              data={metrics.alunosPorTurma}
+              onMouseMove={(state) => {
+                const nextIndex = typeof state?.activeTooltipIndex === 'number' ? state.activeTooltipIndex : Number(state?.activeTooltipIndex ?? -1);
+                setActiveBarIndex(Number.isInteger(nextIndex) && nextIndex >= 0 ? nextIndex : null);
+              }}
+              onMouseLeave={() => setActiveBarIndex(null)}
+            >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="turma" tick={{ fill: '#cbd5e1', fontSize: 12 }} />
               <YAxis tick={{ fill: '#cbd5e1', fontSize: 12 }} />
               <Tooltip
+                cursor={{ fill: 'rgba(167, 139, 250, 0.12)' }}
                 contentStyle={{
                   background: '#0f172a',
                   border: '1px solid rgba(148, 163, 184, 0.18)',
@@ -125,7 +134,16 @@ export function DashboardPage() {
                   color: '#f8fafc',
                 }}
               />
-              <Bar dataKey="count" radius={[8, 8, 0, 0]} fill="#8b5cf6" />
+              <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                {metrics.alunosPorTurma.map((entry, index) => (
+                  <Cell
+                    key={`${entry.turma}-${index}`}
+                    fill={activeBarIndex === index ? '#a78bfa' : '#8b5cf6'}
+                    stroke={activeBarIndex === index ? '#d8b4fe' : 'transparent'}
+                    strokeWidth={activeBarIndex === index ? 1 : 0}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -150,6 +168,15 @@ export function DashboardPage() {
               />
             </PieChart>
           </ResponsiveContainer>
+          <div className="chart-legend">
+            {pieData.map((entry, index) => (
+              <div key={`${entry.name}-${index}`} className="chart-legend-item">
+                <span className="chart-swatch" style={{ background: entry.fill }} />
+                <span className="chart-legend-label">{entry.name}</span>
+                <strong>{entry.value}h</strong>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

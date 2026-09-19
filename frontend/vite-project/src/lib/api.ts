@@ -64,10 +64,10 @@ export const updateProfessor = (id: number, payload: { nome: string; disciplina_
 
 export const deleteProfessor = (id: number) => api.delete(`/professores/${id}`);
 
-export const createAluno = (payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_id: number }) =>
+export const createAluno = (payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_ids: number[] }) =>
   api.post<Aluno>('/alunos', payload).then((response) => response.data);
 
-export const updateAluno = (id: number, payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_id: number }) =>
+export const updateAluno = (id: number, payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_ids: number[] }) =>
   api.put<Aluno>(`/alunos/${id}`, payload).then((response) => response.data);
 
 export const deleteAluno = (id: number) => api.delete(`/alunos/${id}`);
@@ -79,11 +79,11 @@ export const toCreateProfessorPayload = (data: { nome: string; disciplinaId: num
 
 export const toUpdateProfessorPayload = toCreateProfessorPayload;
 
-export const toCreateAlunoPayload = (data: { nome: string; matriculado: boolean; turmaId: number; disciplinaId: number }) => ({
+export const toCreateAlunoPayload = (data: { nome: string; matriculado: boolean; turmaId: number; disciplinaIds: number[] }) => ({
   nome: data.nome,
   matriculado: data.matriculado,
   turma_id: data.turmaId,
-  disciplina_id: data.disciplinaId,
+  disciplina_ids: data.disciplinaIds,
 });
 
 export const toUpdateAlunoPayload = toCreateAlunoPayload;

@@ -22,7 +22,9 @@ export interface Aluno {
   nome: string;
   matriculado: boolean;
   turmaId: number;
-  disciplinaId: number;
+  disciplinaId?: number;
+  disciplinaIds?: number[];
+  disciplinas?: Disciplina[];
   turma?: Turma;
   disciplina?: Disciplina;
 }

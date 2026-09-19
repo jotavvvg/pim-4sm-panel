@@ -345,6 +345,41 @@
   outline: none;
 }
 
+.chart-legend {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.chart-legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.chart-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.chart-legend-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-legend-item strong {
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
 .table-wrapper {
   overflow-x: auto;
   background: rgba(15, 23, 42, 0.75);
@@ -522,6 +557,28 @@ button.danger {
   border: 1px solid var(--line);
   background: rgba(15, 23, 42, 0.8);
   color: var(--white);
+}
+
+.discipline-checkbox-group {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.discipline-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+}
+
+.discipline-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .checkbox-field {
