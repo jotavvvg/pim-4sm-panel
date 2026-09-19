@@ -1,12 +1,32 @@
 {
   "name": "pim-4",
   "version": "1.0.0",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/src/server.js",
+    "db:generate": "drizzle-kit generate --dialect mysql",
+    "db:push": "drizzle-kit push --dialect mysql",
+    "test": "npm run build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "Academic collaborative system backend",
+  "dependencies": {
+    "dotenv": "^18.0.1",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.12.5",
+    "fastify-type-provider-zod": "^7.0.0",
+    "mysql2": "^3.24.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
 }
