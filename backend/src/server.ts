@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import { serializerCompiler, validatorCompiler, jsonSchemaTransform } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { db } from './db/index.js';
@@ -8,6 +9,8 @@ import { disciplinasService } from './services/disciplinas.js';
 import { turmasService } from './services/turmas.js';
 import { professoresService } from './services/professores.js';
 import { alunosService } from './services/alunos.js';
+import { searchService } from './services/search.js';
+import { metricsService } from './services/metrics.js';
 import {
   createDisciplinaSchema,
   createTurmaSchema,
@@ -21,6 +24,13 @@ import {
 
 const app = Fastify({
   logger: true,
+});
+
+await app.register(cors, {
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 });
 
 app.setValidatorCompiler(validatorCompiler);
@@ -140,11 +150,13 @@ app.post('/api/alunos', {
   schema: { body: createAlunoSchema },
 }, async (request, reply) => {
   const payload = request.body as z.infer<typeof createAlunoSchema>;
+  const disciplinaIds = payload.disciplina_ids ?? (payload.disciplina_id ? [payload.disciplina_id] : []);
+
   const item = await alunosService.create({
     nome: payload.nome,
     matriculado: payload.matriculado,
     turmaId: payload.turma_id,
-    disciplinaId: payload.disciplina_id,
+    disciplinaIds,
   });
   return reply.code(201).send(item);
 });
@@ -158,16 +170,26 @@ app.get('/api/alunos/:id', async (request, reply) => {
   return item;
 });
 
+app.get('/api/search', async (request, reply) => {
+  const query = (request.query as { q?: string })?.q ?? '';
+  const results = await searchService.search(query);
+  return reply.send(results);
+});
+
+app.get('/api/metrics', async () => metricsService.getMetrics());
+
 app.put('/api/alunos/:id', {
   schema: { body: updateAlunoSchema },
 }, async (request, reply) => {
   const { id } = request.params as { id: string };
   const payload = request.body as z.infer<typeof updateAlunoSchema>;
+  const disciplinaIds = payload.disciplina_ids ?? (payload.disciplina_id ? [payload.disciplina_id] : undefined);
+
   const item = await alunosService.update(Number(id), {
     ...(payload.nome ? { nome: payload.nome } : {}),
     ...(payload.matriculado !== undefined ? { matriculado: payload.matriculado } : {}),
     ...(payload.turma_id ? { turmaId: payload.turma_id } : {}),
-    ...(payload.disciplina_id ? { disciplinaId: payload.disciplina_id } : {}),
+    ...(disciplinaIds ? { disciplinaIds } : {}),
   });
   if (!item) return reply.code(404).send({ message: 'Aluno not found' });
   return item;

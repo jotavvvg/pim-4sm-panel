@@ -5,6 +5,6 @@ export default defineConfig({
     out: './drizzle',
     dialect: 'mysql',
     dbCredentials: {
-        url: process.env.DATABASE_URL ?? 'mysql://root:root@localhost:3306/academico_db',
+        url: process.env.DATABASE_URL ?? 'mysql://root@localhost:3306/academico_db',
     },
 });
