@@ -4,7 +4,14 @@ import { ActionButton } from '@/components/ActionButton';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { FormField } from '@/components/FormField';
 import { Modal } from '@/components/Modal';
-import { createTurma, deleteTurma, fetchTurmaById, fetchTurmas, updateTurma } from '@/lib/api';
+import {
+  createTurma,
+  deleteTurma,
+  fetchAlunoById,
+  fetchTurmaById,
+  fetchTurmas,
+  updateTurma,
+} from '@/lib/api';
 import type { Aluno, Turma } from '@/types/entities';
 
 const emptyForm = { nome: '' };
@@ -69,7 +76,36 @@ export function TurmasPage() {
 
   const handleSelectTurma = async (row: Turma) => {
     const turma = await fetchTurmaById(row.id);
-    setSelectedTurma(turma);
+    const alunosDetalhados = await Promise.all(
+      (turma.alunos ?? []).map(async (aluno) => {
+        const alunoDetalhado = await fetchAlunoById(aluno.id);
+        return {
+          ...aluno,
+          ...alunoDetalhado,
+        } satisfies Aluno;
+      }),
+    );
+
+    setSelectedTurma({
+      ...turma,
+      alunos: alunosDetalhados,
+    });
+  };
+
+  const getAlunoDisciplinas = (aluno: Aluno) => {
+    if (Array.isArray(aluno.disciplinas) && aluno.disciplinas.length) {
+      return aluno.disciplinas.map((disciplina) => disciplina.nome).filter(Boolean);
+    }
+
+    if (Array.isArray(aluno.disciplinaIds) && aluno.disciplinaIds.length) {
+      return aluno.disciplinaIds.map((id) => aluno.disciplinas?.find((disciplina) => disciplina.id === id)?.nome).filter(Boolean) as string[];
+    }
+
+    if (typeof aluno.disciplinaId === 'number') {
+      return aluno.disciplina?.nome ? [aluno.disciplina.nome] : [];
+    }
+
+    return [];
   };
 
   const columns: DataTableColumn<Turma>[] = [
@@ -115,17 +151,21 @@ export function TurmasPage() {
                 <tr>
                   <th>Nome</th>
                   <th>Matrícula</th>
-                  <th>Disciplina</th>
+                  <th>Disciplinas</th>
                 </tr>
               </thead>
               <tbody>
-                {selectedTurma.alunos.map((aluno: Aluno) => (
-                  <tr key={aluno.id}>
-                    <td>{aluno.nome}</td>
-                    <td>{aluno.matriculado ? 'Ativa' : 'Inativa'}</td>
-                    <td>{aluno.disciplina?.nome ?? '-'}</td>
-                  </tr>
-                ))}
+                {selectedTurma.alunos.map((aluno: Aluno) => {
+                  const disciplinas = getAlunoDisciplinas(aluno);
+
+                  return (
+                    <tr key={aluno.id}>
+                      <td>{aluno.nome}</td>
+                      <td>{aluno.matriculado ? 'Ativa' : 'Inativa'}</td>
+                      <td>{disciplinas.length ? disciplinas.join(', ') : '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
