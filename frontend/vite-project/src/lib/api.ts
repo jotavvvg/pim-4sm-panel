@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import type {
   Aluno,
+  AuthResponse,
   DashboardSummary,
   Disciplina,
   MetricsResponse,
@@ -14,6 +15,32 @@ const api = axios.create({
   baseURL: 'http://localhost:3000/api',
 });
 
+api.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem('bestauth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(undefined, (error: unknown) => {
+  if (axios.isAxiosError(error) && error.response?.status === 401) {
+    const requestUrl = error.config?.url ?? '';
+    if (!requestUrl.includes('/auth/login') && !requestUrl.includes('/auth/bootstrap')) {
+      sessionStorage.removeItem('bestauth_token');
+      sessionStorage.removeItem('bestauth_role');
+      window.dispatchEvent(new Event('bestauth:expired'));
+    }
+  }
+  return Promise.reject(error);
+});
+
+export const login = (username: string, password: string) =>
+  api.post<AuthResponse>('/auth/login', { username, password }).then((response) => response.data);
+
+export const bootstrapAdmin = (username: string, password: string) =>
+  api.post<unknown>('/auth/bootstrap', { username, password, role: 'ADMIN' }).then((response) => response.data);
+
 export const fetchDisciplinas = () => api.get<Disciplina[]>('/disciplinas').then((response) => response.data);
 export const fetchTurmas = () => api.get<Turma[]>('/turmas').then((response) => response.data);
 export const fetchProfessores = () => api.get<Professor[]>('/professores').then((response) => response.data);
@@ -22,7 +49,12 @@ export const fetchMetrics = () => api.get<MetricsResponse>('/metrics').then((res
 export const searchGlobal = (query: string) => api.get<SearchResponse>('/search', { params: { q: query } }).then((response) => response.data);
 
 export const fetchTurmaById = (id: number) => api.get<Turma>(`/turmas/${id}`).then((response) => response.data);
+export const fetchDisciplinaById = (id: number) => api.get<Disciplina>(`/disciplinas/${id}`).then((response) => response.data);
 export const fetchAlunoById = (id: number) => api.get<Aluno>(`/alunos/${id}`).then((response) => response.data);
+export const fetchMyProfessorProfile = () => api.get<Professor>('/professores/me').then((response) => response.data);
+export const fetchMyProfessorStudents = () => api.get<Aluno[]>('/professores/me/alunos').then((response) => response.data);
+export const fetchMyStudentProfile = () => api.get<Aluno>('/alunos/me').then((response) => response.data);
+export const fetchMyStudentClasses = () => api.get<unknown>('/alunos/me/classes').then((response) => response.data);
 
 export const fetchDashboardSummary = async (): Promise<DashboardSummary> => {
   const [disciplinas, turmas, professores, alunos] = await Promise.all([
@@ -56,36 +88,54 @@ export const updateTurma = (id: number, payload: Pick<Turma, 'nome'>) =>
 
 export const deleteTurma = (id: number) => api.delete(`/turmas/${id}`);
 
-export const createProfessor = (payload: { nome: string; disciplina_id: number }) =>
+export const createProfessor = (payload: { nome: string; disciplina_id: number; username: string; password: string; role: 'PROFESSOR' }) =>
   api.post<Professor>('/professores', payload).then((response) => response.data);
 
-export const updateProfessor = (id: number, payload: { nome: string; disciplina_id: number }) =>
+export const updateProfessor = (id: number, payload: { nome: string; disciplina_id: number; username?: string; password?: string }) =>
   api.put<Professor>(`/professores/${id}`, payload).then((response) => response.data);
 
 export const deleteProfessor = (id: number) => api.delete(`/professores/${id}`);
 
-export const createAluno = (payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_ids: number[] }) =>
+export const createAluno = (payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_ids: number[]; username: string; password: string; role: 'ALUNO' }) =>
   api.post<Aluno>('/alunos', payload).then((response) => response.data);
 
-export const updateAluno = (id: number, payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_ids: number[] }) =>
+export const updateAluno = (id: number, payload: { nome: string; matriculado: boolean; turma_id: number; disciplina_ids: number[]; username?: string; password?: string }) =>
   api.put<Aluno>(`/alunos/${id}`, payload).then((response) => response.data);
 
 export const deleteAluno = (id: number) => api.delete(`/alunos/${id}`);
 
-export const toCreateProfessorPayload = (data: { nome: string; disciplinaId: number }) => ({
+export const toCreateProfessorPayload = (data: { nome: string; disciplinaId: number; username: string; password: string }) => ({
   nome: data.nome,
   disciplina_id: data.disciplinaId,
+  username: data.username,
+  password: data.password,
+  role: 'PROFESSOR' as const,
 });
 
-export const toUpdateProfessorPayload = toCreateProfessorPayload;
+export const toUpdateProfessorPayload = (data: { nome: string; disciplinaId: number; username?: string; password?: string }) => ({
+  nome: data.nome,
+  disciplina_id: data.disciplinaId,
+  ...(data.username ? { username: data.username } : {}),
+  ...(data.password ? { password: data.password } : {}),
+});
 
-export const toCreateAlunoPayload = (data: { nome: string; matriculado: boolean; turmaId: number; disciplinaIds: number[] }) => ({
+export const toCreateAlunoPayload = (data: { nome: string; matriculado: boolean; turmaId: number; disciplinaIds: number[]; username: string; password: string }) => ({
   nome: data.nome,
   matriculado: data.matriculado,
   turma_id: data.turmaId,
   disciplina_ids: data.disciplinaIds,
+  username: data.username,
+  password: data.password,
+  role: 'ALUNO' as const,
 });
 
-export const toUpdateAlunoPayload = toCreateAlunoPayload;
+export const toUpdateAlunoPayload = (data: { nome: string; matriculado: boolean; turmaId: number; disciplinaIds: number[]; username?: string; password?: string }) => ({
+  nome: data.nome,
+  matriculado: data.matriculado,
+  turma_id: data.turmaId,
+  disciplina_ids: data.disciplinaIds,
+  ...(data.username ? { username: data.username } : {}),
+  ...(data.password ? { password: data.password } : {}),
+});
 
 export default api;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/ActionButton';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
@@ -95,7 +96,7 @@ export function DisciplinasPage() {
           <h3>Disciplinas</h3>
         </div>
         <button type="button" className="primary-button" onClick={openCreateModal}>
-          + Nova disciplina
+          <Plus aria-hidden="true" /> Nova disciplina
         </button>
       </div>
 

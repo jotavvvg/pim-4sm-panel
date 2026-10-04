@@ -4,6 +4,13 @@ export interface Disciplina {
   carga_hora: number;
 }
 
+export type UserRole = 'ADMIN' | 'PROFESSOR' | 'ALUNO';
+
+export interface AuthResponse {
+  token: string;
+  role: UserRole;
+}
+
 export interface Turma {
   id: number;
   nome: string;
@@ -13,7 +20,9 @@ export interface Turma {
 export interface Professor {
   id: number;
   nome: string;
-  disciplinaId: number;
+  disciplinaId?: number;
+  usuarioId?: number;
+  username?: string;
   disciplina?: Disciplina;
 }
 
@@ -21,7 +30,11 @@ export interface Aluno {
   id: number;
   nome: string;
   matriculado: boolean;
-  turmaId: number;
+  turmaId?: number;
+  turma_id?: number;
+  usuarioId?: number;
+  usuario_id?: number;
+  username?: string;
   disciplinaId?: number;
   disciplinaIds?: number[];
   disciplinas?: Disciplina[];

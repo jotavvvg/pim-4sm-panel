@@ -1,15 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
+import { useAuth } from '@/auth/useAuth';
 import { searchGlobal } from '@/lib/api';
+import type { UserRole } from '@/types/entities';
 
-const navItems = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/disciplinas', label: 'Disciplinas' },
-  { to: '/turmas', label: 'Turmas' },
-  { to: '/professores', label: 'Professores' },
-  { to: '/alunos', label: 'Alunos' },
-];
+const navItems: Record<UserRole, Array<{ to: string; label: string }>> = {
+  ADMIN: [
+    { to: '/', label: 'Dashboard' },
+    { to: '/disciplinas', label: 'Disciplinas' },
+    { to: '/turmas', label: 'Turmas' },
+    { to: '/professores', label: 'Professores' },
+    { to: '/alunos', label: 'Alunos' },
+  ],
+  PROFESSOR: [
+    { to: '/professor/disciplina', label: 'Minha Disciplina' },
+    { to: '/professor/alunos', label: 'Meus Alunos' },
+  ],
+  ALUNO: [
+    { to: '/aluno/perfil', label: 'Meu Perfil' },
+    { to: '/aluno/disciplinas', label: 'Minhas Disciplinas' },
+  ],
+};
+
+const roleLabels: Record<UserRole, string> = {
+  ADMIN: 'Administrador',
+  PROFESSOR: 'Professor',
+  ALUNO: 'Aluno',
+};
 
 const entityLabels: Record<string, string> = {
   alunos: 'Alunos',
@@ -20,6 +39,7 @@ const entityLabels: Record<string, string> = {
 
 export function DashboardLayout() {
   const navigate = useNavigate();
+  const { role, logout } = useAuth();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState('');
@@ -67,6 +87,8 @@ export function DashboardLayout() {
           disciplinas: response.disciplinas.map((item) => ({ id: item.id, nome: item.nome })),
           turmas: response.turmas.map((item) => ({ id: item.id, nome: item.nome })),
         });
+      } catch {
+        setResults({ alunos: [], professores: [], disciplinas: [], turmas: [] });
       } finally {
         setLoadingSearch(false);
       }
@@ -88,12 +110,17 @@ export function DashboardLayout() {
     setResults({ alunos: [], professores: [], disciplinas: [], turmas: [] });
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-head">
           <button type="button" className="sidebar-toggle" onClick={() => setCollapsed((value) => !value)} aria-label="Toggle sidebar">
-            {collapsed ? '›' : '‹'}
+            {collapsed ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
           </button>
           {!collapsed && (
             <div className="brand-block">
@@ -109,7 +136,7 @@ export function DashboardLayout() {
         </div>
 
         <nav className="sidebar-nav" aria-label="Main navigation">
-          {navItems.map((item) => (
+          {(role ? navItems[role] : []).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -126,13 +153,11 @@ export function DashboardLayout() {
 
       <main className="main-panel">
         <header className="topbar">
-          <div className="topbar-left" />
+          <div className="topbar-left"><span className="role-badge">{role ? roleLabels[role] : ''}</span></div>
 
-          <div className="search-shell">
+          {role === 'ADMIN' && <div className="search-shell">
             <div className="search-input-wrap">
-              <span className="search-icon" aria-hidden="true">
-                ⌕
-              </span>
+              <Search className="search-icon" aria-hidden="true" />
               <input
                 ref={inputRef}
                 value={query}
@@ -175,7 +200,8 @@ export function DashboardLayout() {
                 )}
               </div>
             )}
-          </div>
+          </div>}
+          <button type="button" className="secondary-button logout-button" onClick={handleLogout}>Sair</button>
         </header>
 
         <div className="content-area">

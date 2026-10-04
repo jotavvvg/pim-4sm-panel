@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/ActionButton';
+import { AccountCredentialsFields } from '@/components/AccountCredentialsFields';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { FormField } from '@/components/FormField';
 import { Modal } from '@/components/Modal';
@@ -11,11 +13,13 @@ import {
   fetchDisciplinas,
   fetchTurmas,
   toCreateAlunoPayload,
+  toUpdateAlunoPayload,
   updateAluno,
 } from '@/lib/api';
+import { credentialsAreValid } from '@/lib/validation';
 import type { Aluno, Disciplina, Turma } from '@/types/entities';
 
-const emptyForm = { nome: '', matriculado: false, turmaId: '', disciplinaIds: [] as number[] };
+const emptyForm = { nome: '', matriculado: false, turmaId: '', disciplinaIds: [] as number[], username: '', password: '' };
 
 const normalizeDisciplinaIds = (row: Aluno) => {
   if (Array.isArray(row.disciplinaIds) && row.disciplinaIds.length) {
@@ -57,6 +61,7 @@ export function AlunosPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
+  const [formError, setFormError] = useState('');
 
   const loadItems = async () => {
     const [alunos, turmasData, disciplinasData] = await Promise.all([
@@ -85,8 +90,10 @@ export function AlunosPage() {
     setForm({
       nome: row.nome,
       matriculado: row.matriculado,
-      turmaId: String(row.turmaId),
+      turmaId: String(row.turmaId ?? row.turma_id ?? row.turma?.id ?? ''),
       disciplinaIds: normalizeDisciplinaIds(row),
+      username: '',
+      password: '',
     });
     setModalOpen(true);
   };
@@ -104,21 +111,35 @@ export function AlunosPage() {
   };
 
   const handleSubmit = async () => {
+    setFormError('');
     if (!form.nome.trim() || !form.turmaId || form.disciplinaIds.length === 0) {
+      setFormError('Preencha os campos obrigatórios e selecione ao menos uma disciplina.');
+      return;
+    }
+    if (!credentialsAreValid(form.username, form.password, editingId === null)) {
+      setFormError(editingId === null ? 'Username deve ter de 3 a 100 caracteres e senha de 8 a 128 caracteres.' : 'Username ou senha informados não atendem aos requisitos.');
       return;
     }
 
-    const payload = toCreateAlunoPayload({
+    const studentData = {
       nome: form.nome.trim(),
       matriculado: Boolean(form.matriculado),
       turmaId: Number(form.turmaId),
       disciplinaIds: form.disciplinaIds,
-    });
+    };
 
     if (editingId !== null) {
-      await updateAluno(editingId, payload);
+      await updateAluno(editingId, toUpdateAlunoPayload({
+        ...studentData,
+        username: form.username.trim() || undefined,
+        password: form.password || undefined,
+      }));
     } else {
-      await createAluno(payload);
+      await createAluno(toCreateAlunoPayload({
+        ...studentData,
+        username: form.username.trim(),
+        password: form.password,
+      }));
     }
 
     setModalOpen(false);
@@ -178,7 +199,7 @@ export function AlunosPage() {
           <h3>Alunos</h3>
         </div>
         <button type="button" className="primary-button" onClick={openCreateModal}>
-          + Novo aluno
+          <Plus aria-hidden="true" /> Novo aluno
         </button>
       </div>
 
@@ -227,6 +248,14 @@ export function AlunosPage() {
               ))}
             </div>
           </div>
+          <AccountCredentialsFields
+            username={form.username}
+            password={form.password}
+            creating={editingId === null}
+            onUsernameChange={(username) => setForm((current) => ({ ...current, username }))}
+            onPasswordChange={(password) => setForm((current) => ({ ...current, password }))}
+          />
+          {formError && <p className="form-error" role="alert">{formError}</p>}
         </div>
 
         <div className="modal-actions">

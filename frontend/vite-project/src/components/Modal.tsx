@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 
 type ModalProps = {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export function Modal({ isOpen, title, onClose, children }: ModalProps) {
         <div className="modal-header">
           <h3 id="modal-title">{title}</h3>
           <button type="button" className="close-button" onClick={onClose} aria-label="Fechar modal">
-            ×
+            <X aria-hidden="true" />
           </button>
         </div>
         <div className="modal-body">{children}</div>

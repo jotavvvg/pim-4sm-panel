@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/ActionButton';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
@@ -132,7 +133,7 @@ export function TurmasPage() {
           <h3>Turmas</h3>
         </div>
         <button type="button" className="primary-button" onClick={openCreateModal}>
-          + Nova turma
+          <Plus aria-hidden="true" /> Nova turma
         </button>
       </div>
 
