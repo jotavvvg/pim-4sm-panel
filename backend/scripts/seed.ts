@@ -1,17 +1,17 @@
+import 'dotenv/config';
 import { createConnection } from 'mysql2/promise';
+import { hash } from 'bcryptjs';
 
 const runSeed = async () => {
-  const connection = await createConnection({
-    host: 'localhost',
-    user: 'root',
-    database: 'academico_db',
-    port: 3306,
-  });
+  const connection = await createConnection(
+    process.env.DATABASE_URL ?? 'mysql://root@localhost:3306/academico_db',
+  );
 
   await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
   await connection.execute('DELETE FROM aluno_disciplina');
   await connection.execute('DELETE FROM aluno');
   await connection.execute('DELETE FROM professor');
+  await connection.execute('DELETE FROM usuarios');
   await connection.execute('DELETE FROM disciplina');
   await connection.execute('DELETE FROM turma');
   await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
@@ -37,6 +37,16 @@ const runSeed = async () => {
     disciplinaByName.set(row.nome, row.id);
   }
 
+  const insertUser = async (username: string, password: string, role: 'ADMIN' | 'PROFESSOR' | 'ALUNO') => {
+    const [result] = await connection.execute(
+      'INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)',
+      [username, await hash(password, 12), role],
+    );
+    return Number((result as any).insertId);
+  };
+
+  await insertUser('admin', 'Admin123!', 'ADMIN');
+
   const professorRows = [
     { nome: 'Prof. Ana Silva', disciplinaNome: 'Matemática' },
     { nome: 'Prof. Carlos Rocha', disciplinaNome: 'História' },
@@ -49,9 +59,11 @@ const runSeed = async () => {
       throw new Error(`Disciplina not found for professor ${professor.nome}: ${professor.disciplinaNome}`);
     }
 
+    const username = professor.nome.toLowerCase().replace(/[^a-z]+/g, '.').replace(/^\.|\.$/g, '');
+    const usuarioId = await insertUser(username, 'Professor123!', 'PROFESSOR');
     await connection.execute(
-      'INSERT INTO professor (nome, disciplina_id) VALUES (?, ?)',
-      [professor.nome, disciplinaId],
+      'INSERT INTO professor (nome, disciplina_id, usuario_id) VALUES (?, ?, ?)',
+      [professor.nome, disciplinaId, usuarioId],
     );
   }
 
@@ -79,9 +91,11 @@ const runSeed = async () => {
       throw new Error(`Turma not found for aluno ${aluno.nome}: ${aluno.turmaNome}`);
     }
 
+    const username = aluno.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]+/g, '.').replace(/^\.|\.$/g, '');
+    const usuarioId = await insertUser(username, 'Aluno123!', 'ALUNO');
     const [result] = await connection.execute(
-      'INSERT INTO aluno (nome, matriculado, turma_id) VALUES (?, ?, ?)',
-      [aluno.nome, aluno.matriculado ? 1 : 0, turmaId],
+      'INSERT INTO aluno (nome, matriculado, turma_id, usuario_id) VALUES (?, ?, ?, ?)',
+      [aluno.nome, aluno.matriculado ? 1 : 0, turmaId, usuarioId],
     );
 
     const insertId = Number((result as any).insertId);
@@ -109,6 +123,7 @@ const runSeed = async () => {
   console.log('Turmas inserted:', turmaResult);
   console.log('Disciplinas inserted:', disciplinaResult);
   console.log('Aluno-disciplina links inserted for 5 students.');
+  console.log('Mock login credentials: admin/Admin123!, professors/Professor123!, students/Aluno123!.');
   await connection.end();
 };
 

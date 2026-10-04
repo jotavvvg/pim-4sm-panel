@@ -1,6 +1,8 @@
 import 'dotenv/config';
+import { randomBytes } from 'node:crypto';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { disciplinasService } from './services/disciplinas.js';
 import { turmasService } from './services/turmas.js';
@@ -8,7 +10,8 @@ import { professoresService } from './services/professores.js';
 import { alunosService } from './services/alunos.js';
 import { searchService } from './services/search.js';
 import { metricsService } from './services/metrics.js';
-import { createDisciplinaSchema, createTurmaSchema, createProfessorSchema, createAlunoSchema, updateDisciplinaSchema, updateTurmaSchema, updateProfessorSchema, updateAlunoSchema, } from './schemas/index.js';
+import { accountsService } from './services/accounts.js';
+import { createDisciplinaSchema, createTurmaSchema, createProfessorSchema, createAlunoSchema, updateDisciplinaSchema, updateTurmaSchema, updateProfessorSchema, updateAlunoSchema, loginSchema, createAdminSchema, updateAdminSchema, } from './schemas/index.js';
 const app = Fastify({
     logger: true,
 });
@@ -20,7 +23,76 @@ await app.register(cors, {
 });
 app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);
+const jwtSecret = process.env.JWT_SECRET ?? randomBytes(32).toString('hex');
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be configured in production.');
+}
+if (!process.env.JWT_SECRET)
+    app.log.warn('JWT_SECRET is unset; using an ephemeral development secret.');
+await app.register(jwt, {
+    secret: jwtSecret,
+    sign: { expiresIn: '8h' },
+});
+app.addHook('preHandler', async (request, reply) => {
+    const path = request.url.split('?')[0];
+    if (path === '/health' || path === '/api/auth/login' || path === '/api/auth/bootstrap')
+        return;
+    try {
+        await request.jwtVerify();
+    }
+    catch {
+        return reply.code(401).send({ message: 'Authentication required.' });
+    }
+    if (request.user.role === 'ADMIN')
+        return;
+    const isProfessorPath = request.user.role === 'PROFESSOR' && ((request.method === 'GET' && (path === '/api/alunos' || /^\/api\/alunos\/\d+$/.test(path) ||
+        path === '/api/professores/me' || path === '/api/professores/me/alunos' ||
+        /^\/api\/disciplinas\/\d+$/.test(path))) ||
+        (request.method === 'PUT' && /^\/api\/alunos\/\d+$/.test(path)));
+    const isAlunoPath = request.user.role === 'ALUNO' && request.method === 'GET' && (path === '/api/alunos/me' || path === '/api/alunos/me/classes');
+    if (!isProfessorPath && !isAlunoPath) {
+        return reply.code(403).send({ message: 'Insufficient role permissions.' });
+    }
+});
 app.get('/health', async () => ({ status: 'ok' }));
+app.post('/api/auth/login', { schema: { body: loginSchema } }, async (request, reply) => {
+    const { username, password } = request.body;
+    const account = await accountsService.login(username, password);
+    if (!account)
+        return reply.code(401).send({ message: 'Invalid username or password.' });
+    const token = app.jwt.sign({ userId: account.id, role: account.role });
+    return { token, role: account.role };
+});
+app.post('/api/auth/bootstrap', { schema: { body: createAdminSchema } }, async (request, reply) => {
+    if ((await accountsService.listAdmins()).length > 0) {
+        return reply.code(409).send({ message: 'Initial admin account has already been created.' });
+    }
+    const payload = request.body;
+    const admin = await accountsService.createAdmin(payload);
+    return reply.code(201).send(admin);
+});
+app.post('/api/admins', { schema: { body: createAdminSchema } }, async (request, reply) => {
+    const payload = request.body;
+    return reply.code(201).send(await accountsService.createAdmin(payload));
+});
+app.get('/api/admins', async () => accountsService.listAdmins());
+app.put('/api/admins/:id', { schema: { body: updateAdminSchema } }, async (request, reply) => {
+    const { id } = request.params;
+    const admin = await accountsService.updateAdmin(Number(id), request.body);
+    if (!admin)
+        return reply.code(404).send({ message: 'Admin not found.' });
+    return admin;
+});
+app.delete('/api/admins/:id', async (request, reply) => {
+    const { id } = request.params;
+    const admins = await accountsService.listAdmins();
+    if (admins.length <= 1)
+        return reply.code(409).send({ message: 'The last admin account cannot be deleted.' });
+    const removed = await accountsService.removeAdmin(Number(id));
+    if (!removed)
+        return reply.code(404).send({ message: 'Admin not found.' });
+    return reply.code(204).send();
+});
 app.post('/api/disciplinas', {
     schema: {
         body: createDisciplinaSchema,
@@ -33,6 +105,12 @@ app.post('/api/disciplinas', {
 app.get('/api/disciplinas', async () => disciplinasService.list());
 app.get('/api/disciplinas/:id', async (request, reply) => {
     const { id } = request.params;
+    if (request.user.role === 'PROFESSOR') {
+        const professor = await professoresService.findByUserId(request.user.userId);
+        if (!professor || professor.disciplinaId !== Number(id)) {
+            return reply.code(404).send({ message: 'Disciplina not found' });
+        }
+    }
     const item = await disciplinasService.findById(Number(id));
     if (!item)
         return reply.code(404).send({ message: 'Disciplina not found' });
@@ -89,13 +167,31 @@ app.post('/api/professores', {
     schema: { body: createProfessorSchema },
 }, async (request, reply) => {
     const payload = request.body;
-    const item = await professoresService.create({
+    const item = await accountsService.createProfessor({
         nome: payload.nome,
         disciplinaId: payload.disciplina_id,
+        username: payload.username,
+        password: payload.password,
     });
     return reply.code(201).send(item);
 });
 app.get('/api/professores', async () => professoresService.list());
+app.get('/api/professores/me', async (request, reply) => {
+    if (request.user.role !== 'PROFESSOR')
+        return reply.code(403).send({ message: 'Professor role required.' });
+    const professor = await professoresService.findByUserId(request.user.userId);
+    if (!professor)
+        return reply.code(404).send({ message: 'Professor profile not found.' });
+    return professor;
+});
+app.get('/api/professores/me/alunos', async (request, reply) => {
+    if (request.user.role !== 'PROFESSOR')
+        return reply.code(403).send({ message: 'Professor role required.' });
+    const professor = await professoresService.findByUserId(request.user.userId);
+    if (!professor)
+        return reply.code(404).send({ message: 'Professor profile not found.' });
+    return alunosService.listByDisciplineId(professor.disciplinaId);
+});
 app.get('/api/professores/:id', async (request, reply) => {
     const { id } = request.params;
     const item = await professoresService.findById(Number(id));
@@ -108,6 +204,10 @@ app.put('/api/professores/:id', {
 }, async (request, reply) => {
     const { id } = request.params;
     const payload = request.body;
+    const currentProfessor = await professoresService.findById(Number(id));
+    if (!currentProfessor)
+        return reply.code(404).send({ message: 'Professor not found' });
+    await accountsService.updateCredentials(currentProfessor.usuarioId, payload);
     const item = await professoresService.update(Number(id), {
         ...(payload.nome ? { nome: payload.nome } : {}),
         ...(payload.disciplina_id ? { disciplinaId: payload.disciplina_id } : {}),
@@ -128,18 +228,49 @@ app.post('/api/alunos', {
 }, async (request, reply) => {
     const payload = request.body;
     const disciplinaIds = payload.disciplina_ids ?? (payload.disciplina_id ? [payload.disciplina_id] : []);
-    const item = await alunosService.create({
+    const item = await accountsService.createAluno({
         nome: payload.nome,
         matriculado: payload.matriculado,
         turmaId: payload.turma_id,
         disciplinaIds,
+        username: payload.username,
+        password: payload.password,
     });
     return reply.code(201).send(item);
 });
-app.get('/api/alunos', async () => alunosService.list());
+app.get('/api/alunos/me', async (request, reply) => {
+    if (request.user.role !== 'ALUNO')
+        return reply.code(403).send({ message: 'Aluno role required.' });
+    const aluno = await alunosService.findByUserId(request.user.userId);
+    if (!aluno)
+        return reply.code(404).send({ message: 'Aluno profile not found.' });
+    return aluno;
+});
+app.get('/api/alunos/me/classes', async (request, reply) => {
+    if (request.user.role !== 'ALUNO')
+        return reply.code(403).send({ message: 'Aluno role required.' });
+    const aluno = await alunosService.findByUserId(request.user.userId);
+    if (!aluno)
+        return reply.code(404).send({ message: 'Aluno profile not found.' });
+    return { turma: aluno.turma, disciplinas: aluno.disciplinas };
+});
+app.get('/api/alunos', async (request) => {
+    if (request.user.role === 'ADMIN')
+        return alunosService.list();
+    const professor = await professoresService.findByUserId(request.user.userId);
+    return professor ? alunosService.listByDisciplineId(professor.disciplinaId) : [];
+});
 app.get('/api/alunos/:id', async (request, reply) => {
     const { id } = request.params;
-    const item = await alunosService.findById(Number(id));
+    let disciplinaId;
+    if (request.user.role === 'PROFESSOR') {
+        const professor = await professoresService.findByUserId(request.user.userId);
+        const linked = professor && await alunosService.isLinkedToDiscipline(Number(id), professor.disciplinaId);
+        if (!linked)
+            return reply.code(404).send({ message: 'Aluno not found' });
+        disciplinaId = professor.disciplinaId;
+    }
+    const item = await alunosService.findById(Number(id), disciplinaId);
     if (!item)
         return reply.code(404).send({ message: 'Aluno not found' });
     return item;
@@ -155,6 +286,23 @@ app.put('/api/alunos/:id', {
 }, async (request, reply) => {
     const { id } = request.params;
     const payload = request.body;
+    const current = await alunosService.findById(Number(id));
+    if (!current)
+        return reply.code(404).send({ message: 'Aluno not found' });
+    if (request.user.role === 'PROFESSOR') {
+        const professor = await professoresService.findByUserId(request.user.userId);
+        const linked = professor && await alunosService.isLinkedToDiscipline(Number(id), professor.disciplinaId);
+        if (!linked)
+            return reply.code(404).send({ message: 'Aluno not found' });
+        if (payload.username !== undefined || payload.password !== undefined || payload.disciplina_id !== undefined || payload.disciplina_ids !== undefined) {
+            return reply.code(403).send({ message: 'Professors may only update student profile fields for students in their discipline.' });
+        }
+    }
+    else {
+        const usuarioId = await alunosService.findAccountUserId(Number(id));
+        if (usuarioId !== null)
+            await accountsService.updateCredentials(usuarioId, payload);
+    }
     const disciplinaIds = payload.disciplina_ids ?? (payload.disciplina_id ? [payload.disciplina_id] : undefined);
     const item = await alunosService.update(Number(id), {
         ...(payload.nome ? { nome: payload.nome } : {}),

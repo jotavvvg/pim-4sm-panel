@@ -17,6 +17,21 @@ export const professorSchema = z.object({
   disciplina_id: z.number().int().positive(),
 });
 
+const accountCredentialsSchema = {
+  username: z.string().min(3).max(100),
+  password: z.string().min(8).max(128),
+};
+
+export const loginSchema = z.object({
+  username: z.string().min(1).max(100),
+  password: z.string().min(1).max(128),
+});
+
+export const updateCredentialsSchema = z.object({
+  username: z.string().min(3).max(100).optional(),
+  password: z.string().min(8).max(128).optional(),
+});
+
 export const alunoSchema = z.object({
   id: z.number().int().positive().optional(),
   nome: z.string().min(1).max(255),
@@ -28,19 +43,46 @@ export const alunoSchema = z.object({
 
 export const createDisciplinaSchema = disciplinaSchema.omit({ id: true });
 export const createTurmaSchema = turmaSchema.omit({ id: true });
-export const createProfessorSchema = professorSchema.omit({ id: true });
+export const createProfessorSchema = z.object({
+  nome: professorSchema.shape.nome,
+  disciplina_id: professorSchema.shape.disciplina_id,
+  ...accountCredentialsSchema,
+  role: z.literal('PROFESSOR'),
+});
+export const updateProfessorSchema = z.object({
+  nome: professorSchema.shape.nome.optional(),
+  disciplina_id: professorSchema.shape.disciplina_id.optional(),
+  ...updateCredentialsSchema.shape,
+});
 export const createAlunoSchema = z.object({
   nome: alunoSchema.shape.nome,
   matriculado: alunoSchema.shape.matriculado,
   turma_id: alunoSchema.shape.turma_id,
   disciplina_id: alunoSchema.shape.disciplina_id,
   disciplina_ids: alunoSchema.shape.disciplina_ids,
+  ...accountCredentialsSchema,
+  role: z.literal('ALUNO'),
+}).refine((payload) => payload.disciplina_id !== undefined || (payload.disciplina_ids?.length ?? 0) > 0, {
+  message: 'A student must include at least one discipline id.',
+  path: ['disciplina_ids'],
 });
+export const updateAlunoSchema = z.object({
+  nome: alunoSchema.shape.nome.optional(),
+  matriculado: z.boolean().optional(),
+  turma_id: alunoSchema.shape.turma_id.optional(),
+  disciplina_id: alunoSchema.shape.disciplina_id,
+  disciplina_ids: alunoSchema.shape.disciplina_ids,
+  ...updateCredentialsSchema.shape,
+});
+export const createAdminSchema = z.object({
+  ...accountCredentialsSchema,
+  role: z.literal('ADMIN'),
+});
+export const updateAdminSchema = updateCredentialsSchema;
 
 export const updateDisciplinaSchema = createDisciplinaSchema.partial();
 export const updateTurmaSchema = createTurmaSchema.partial();
-export const updateProfessorSchema = createProfessorSchema.partial();
-export const updateAlunoSchema = createAlunoSchema.partial();
+export const updateAccountSchema = updateCredentialsSchema;
 
 export const validateAlunoDisciplines = (payload: { disciplina_id?: number; disciplina_ids?: number[] }) => {
   const hasSelectedDiscipline = payload.disciplina_id !== undefined || (payload.disciplina_ids && payload.disciplina_ids.length > 0);

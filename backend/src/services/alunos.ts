@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { alunoDisciplinas, alunos, disciplinas, turmas } from '../db/schema.js';
+import { alunoDisciplinas, alunos, disciplinas, turmas, usuarios } from '../db/schema.js';
 
 const normalizeDisciplinaIds = (value?: number | number[]) => {
   if (Array.isArray(value)) return value;
@@ -8,7 +8,7 @@ const normalizeDisciplinaIds = (value?: number | number[]) => {
   return [];
 };
 
-const buildAlunoResponse = async (aluno: typeof alunos.$inferSelect) => {
+const buildAlunoResponse = async (aluno: typeof alunos.$inferSelect, disciplinaId?: number) => {
   const turma = await db.select().from(turmas).where(eq(turmas.id, aluno.turmaId)).then((rows) => rows[0] ?? null);
 
   const disciplineRows = await db
@@ -19,7 +19,9 @@ const buildAlunoResponse = async (aluno: typeof alunos.$inferSelect) => {
     })
     .from(alunoDisciplinas)
     .innerJoin(disciplinas, eq(alunoDisciplinas.disciplinaId, disciplinas.id))
-    .where(eq(alunoDisciplinas.alunoId, aluno.id));
+    .where(disciplinaId === undefined
+      ? eq(alunoDisciplinas.alunoId, aluno.id)
+      : and(eq(alunoDisciplinas.alunoId, aluno.id), eq(alunoDisciplinas.disciplinaId, disciplinaId)));
 
   return {
     id: aluno.id,
@@ -37,17 +39,47 @@ export const alunosService = {
     return Promise.all(allAlunos.map((aluno) => buildAlunoResponse(aluno)));
   },
 
-  async findById(id: number) {
+  async findById(id: number, disciplinaId?: number) {
     const [aluno] = await db.select().from(alunos).where(eq(alunos.id, id));
+    if (!aluno) return null;
+    return buildAlunoResponse(aluno, disciplinaId);
+  },
+
+  async findByUserId(userId: number) {
+    const [aluno] = await db.select().from(alunos).where(eq(alunos.usuarioId, userId));
     if (!aluno) return null;
     return buildAlunoResponse(aluno);
   },
 
-  async create(data: { nome: string; matriculado: boolean; turmaId: number; disciplinaIds: number[] }) {
+  async findAccountUserId(alunoId: number) {
+    const [aluno] = await db.select({ usuarioId: alunos.usuarioId })
+      .from(alunos)
+      .where(eq(alunos.id, alunoId));
+    return aluno?.usuarioId ?? null;
+  },
+
+  async listByDisciplineId(disciplinaId: number) {
+    const rows = await db.select({ aluno: alunos })
+      .from(alunos)
+      .innerJoin(alunoDisciplinas, eq(alunoDisciplinas.alunoId, alunos.id))
+      .where(eq(alunoDisciplinas.disciplinaId, disciplinaId));
+    return Promise.all(rows.map(({ aluno }) => buildAlunoResponse(aluno, disciplinaId)));
+  },
+
+  async isLinkedToDiscipline(alunoId: number, disciplinaId: number) {
+    const [row] = await db.select({ alunoId: alunoDisciplinas.alunoId })
+      .from(alunoDisciplinas)
+      .where(and(eq(alunoDisciplinas.alunoId, alunoId), eq(alunoDisciplinas.disciplinaId, disciplinaId)))
+      .limit(1);
+    return Boolean(row);
+  },
+
+  async create(data: { nome: string; matriculado: boolean; turmaId: number; disciplinaIds: number[]; usuarioId: number }) {
     const [result] = await db.insert(alunos).values({
       nome: data.nome,
       matriculado: data.matriculado,
       turmaId: data.turmaId,
+      usuarioId: data.usuarioId,
     });
 
     const alunoId = Number(result.insertId);
@@ -97,8 +129,13 @@ export const alunosService = {
   },
 
   async remove(id: number) {
-    await db.delete(alunoDisciplinas).where(eq(alunoDisciplinas.alunoId, id));
-    const [result] = await db.delete(alunos).where(eq(alunos.id, id));
-    return (result.affectedRows ?? 0) > 0;
+    return db.transaction(async (tx) => {
+      const [aluno] = await tx.select({ usuarioId: alunos.usuarioId }).from(alunos).where(eq(alunos.id, id));
+      if (!aluno) return false;
+      await tx.delete(alunoDisciplinas).where(eq(alunoDisciplinas.alunoId, id));
+      await tx.delete(alunos).where(eq(alunos.id, id));
+      await tx.delete(usuarios).where(eq(usuarios.id, aluno.usuarioId));
+      return true;
+    });
   },
 };

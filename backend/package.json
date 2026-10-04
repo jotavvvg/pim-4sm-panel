@@ -7,8 +7,9 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/src/server.js",
-    "db:generate": "drizzle-kit generate --dialect mysql",
-    "db:push": "drizzle-kit push --dialect mysql",
+    "db:generate": "drizzle-kit generate --config=./drizzle.config.ts",
+    "db:push": "drizzle-kit push --config=./drizzle.config.ts --force",
+    "db:seed": "tsx scripts/seed.ts",
     "test": "npm run build"
   },
   "keywords": [],
@@ -17,6 +18,8 @@
   "description": "Academic collaborative system backend",
   "dependencies": {
     "@fastify/cors": "^11.3.0",
+    "@fastify/jwt": "^10.2.2",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.1",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.5",

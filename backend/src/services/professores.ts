@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { professores } from '../db/schema.js';
+import { professores, usuarios } from '../db/schema.js';
 
 export const professoresService = {
   async list() {
@@ -20,7 +20,16 @@ export const professoresService = {
     });
   },
 
-  async create(data: { nome: string; disciplinaId: number }) {
+  async findByUserId(userId: number) {
+    return db.query.professores.findFirst({
+      where: (professor, { eq }) => eq(professor.usuarioId, userId),
+      with: {
+        disciplina: true,
+      },
+    });
+  },
+
+  async create(data: { nome: string; disciplinaId: number; usuarioId: number }) {
     const [result] = await db.insert(professores).values(data);
     return result.insertId ? { id: Number(result.insertId), ...data } : null;
   },
@@ -36,7 +45,14 @@ export const professoresService = {
   },
 
   async remove(id: number) {
-    const [result] = await db.delete(professores).where(eq(professores.id, id));
-    return (result.affectedRows ?? 0) > 0;
+    return db.transaction(async (tx) => {
+      const [professor] = await tx.select({ usuarioId: professores.usuarioId })
+        .from(professores)
+        .where(eq(professores.id, id));
+      if (!professor) return false;
+      await tx.delete(professores).where(eq(professores.id, id));
+      await tx.delete(usuarios).where(eq(usuarios.id, professor.usuarioId));
+      return true;
+    });
   },
 };

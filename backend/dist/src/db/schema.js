@@ -1,5 +1,13 @@
-import { mysqlTable, int, varchar, boolean, primaryKey } from 'drizzle-orm/mysql-core';
+import { mysqlEnum, mysqlTable, int, varchar, boolean, uniqueIndex } from 'drizzle-orm/mysql-core';
 import { relations } from 'drizzle-orm';
+export const usuarios = mysqlTable('usuarios', {
+    id: int('id').primaryKey().autoincrement(),
+    username: varchar('username', { length: 100 }).notNull(),
+    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    role: mysqlEnum('role', ['ADMIN', 'PROFESSOR', 'ALUNO']).notNull(),
+}, (table) => ({
+    usernameUnique: uniqueIndex('usuarios_username_unique').on(table.username),
+}));
 export const disciplinas = mysqlTable('disciplina', {
     id: int('id').primaryKey().autoincrement(),
     nome: varchar('nome', { length: 255 }).notNull(),
@@ -13,13 +21,19 @@ export const professores = mysqlTable('professor', {
     id: int('id').primaryKey().autoincrement(),
     nome: varchar('nome', { length: 255 }).notNull(),
     disciplinaId: int('disciplina_id').references(() => disciplinas.id).notNull(),
-});
+    usuarioId: int('usuario_id').references(() => usuarios.id).notNull(),
+}, (table) => ({
+    usuarioUnique: uniqueIndex('professor_usuario_unique').on(table.usuarioId),
+}));
 export const alunos = mysqlTable('aluno', {
     id: int('id').primaryKey().autoincrement(),
     nome: varchar('nome', { length: 255 }).notNull(),
     matriculado: boolean('matriculado').default(true).notNull(),
     turmaId: int('turma_id').references(() => turmas.id).notNull(),
-});
+    usuarioId: int('usuario_id').references(() => usuarios.id).notNull(),
+}, (table) => ({
+    usuarioUnique: uniqueIndex('aluno_usuario_unique').on(table.usuarioId),
+}));
 export const alunoDisciplinas = mysqlTable('aluno_disciplina', {
     alunoId: int('aluno_id')
         .notNull()
@@ -28,12 +42,20 @@ export const alunoDisciplinas = mysqlTable('aluno_disciplina', {
         .notNull()
         .references(() => disciplinas.id),
 }, (table) => ({
-    pk: primaryKey({ columns: [table.alunoId, table.disciplinaId] }),
+    alunoDisciplinaUnique: uniqueIndex('aluno_disciplina_pair_unique').on(table.alunoId, table.disciplinaId),
 }));
 export const turmasRelations = relations(turmas, ({ many }) => ({
     alunos: many(alunos),
 }));
+export const usuariosRelations = relations(usuarios, ({ one }) => ({
+    aluno: one(alunos),
+    professor: one(professores),
+}));
 export const alunosRelations = relations(alunos, ({ one, many }) => ({
+    usuario: one(usuarios, {
+        fields: [alunos.usuarioId],
+        references: [usuarios.id],
+    }),
     turma: one(turmas, {
         fields: [alunos.turmaId],
         references: [turmas.id],
@@ -54,6 +76,10 @@ export const alunoDisciplinasRelations = relations(alunoDisciplinas, ({ one }) =
     }),
 }));
 export const professoresRelations = relations(professores, ({ one }) => ({
+    usuario: one(usuarios, {
+        fields: [professores.usuarioId],
+        references: [usuarios.id],
+    }),
     disciplina: one(disciplinas, {
         fields: [professores.disciplinaId],
         references: [disciplinas.id],
