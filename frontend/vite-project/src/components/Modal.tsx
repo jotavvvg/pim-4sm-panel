@@ -6,9 +6,10 @@ type ModalProps = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  className?: string;
 };
 
-export function Modal({ isOpen, title, onClose, children }: ModalProps) {
+export function Modal({ isOpen, title, onClose, children, className }: ModalProps) {
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -30,7 +31,7 @@ export function Modal({ isOpen, title, onClose, children }: ModalProps) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div className={`modal ${className ?? ''}`} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div className="modal-header">
           <h3 id="modal-title">{title}</h3>
           <button type="button" className="close-button" onClick={onClose} aria-label="Fechar modal">

@@ -2,17 +2,23 @@ import axios from 'axios';
 
 import type {
   Aluno,
+  Activity,
   AuthResponse,
   DashboardSummary,
   Disciplina,
   MetricsResponse,
+  PendingEvaluation,
   Professor,
+  ProfessorGradeMetrics,
   SearchResponse,
+  StudentGradeMetrics,
+  StudentSubmission,
+  SubmittedAnswerInput,
   Turma,
 } from '@/types/entities';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
 });
 
 api.interceptors.request.use((config) => {
@@ -46,7 +52,25 @@ export const fetchTurmas = () => api.get<Turma[]>('/turmas').then((response) => 
 export const fetchProfessores = () => api.get<Professor[]>('/professores').then((response) => response.data);
 export const fetchAlunos = () => api.get<Aluno[]>('/alunos').then((response) => response.data);
 export const fetchMetrics = () => api.get<MetricsResponse>('/metrics').then((response) => response.data);
+export const fetchGradeMetrics = () => api.get<ProfessorGradeMetrics | StudentGradeMetrics>('/metrics/grades').then((response) => response.data);
 export const searchGlobal = (query: string) => api.get<SearchResponse>('/search', { params: { q: query } }).then((response) => response.data);
+export const fetchActivities = () => api.get<Activity[]>('/atividades').then((response) => response.data);
+export const createActivity = (payload: {
+  titulo: string;
+  disciplina_id: number;
+  questoes: Array<{
+    tipo: 'MULTIPLACADA' | 'DISSERTATIVA';
+    enunciado: string;
+    opcoes: string[] | null;
+    resposta_correta: string | null;
+  }>;
+}) => api.post<Activity>('/atividades', payload).then((response) => response.data);
+export const submitActivity = (id: number, answers: SubmittedAnswerInput[]) =>
+  api.post<StudentSubmission>(`/atividades/${id}/submeter`, answers).then((response) => response.data);
+export const fetchPendingEvaluations = () =>
+  api.get<PendingEvaluation[]>('/avaliacoes/pendentes').then((response) => response.data);
+export const correctEvaluationAnswer = (answerId: number, correta: boolean) =>
+  api.post<StudentSubmission>(`/avaliacoes/questoes/${answerId}/corrigir`, { correta }).then((response) => response.data);
 
 export const fetchTurmaById = (id: number) => api.get<Turma>(`/turmas/${id}`).then((response) => response.data);
 export const fetchDisciplinaById = (id: number) => api.get<Disciplina>(`/disciplinas/${id}`).then((response) => response.data);

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { AuthContext } from '@/auth/auth-context';
 import { bootstrapAdmin, login as loginRequest } from '@/lib/api';
@@ -10,24 +11,33 @@ function readRole(): UserRole | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [role, setRole] = useState<UserRole | null>(readRole);
 
   const persistSession = (token: string, nextRole: UserRole) => {
+    queryClient.clear();
     sessionStorage.setItem('bestauth_token', token);
     sessionStorage.setItem('bestauth_role', nextRole);
     setRole(nextRole);
   };
 
   const logout = () => {
+    queryClient.clear();
     sessionStorage.removeItem('bestauth_token');
     sessionStorage.removeItem('bestauth_role');
     setRole(null);
   };
 
   useEffect(() => {
-    window.addEventListener('bestauth:expired', logout);
-    return () => window.removeEventListener('bestauth:expired', logout);
-  }, []);
+    const handleExpiredSession = () => {
+      queryClient.clear();
+      sessionStorage.removeItem('bestauth_token');
+      sessionStorage.removeItem('bestauth_role');
+      setRole(null);
+    };
+    window.addEventListener('bestauth:expired', handleExpiredSession);
+    return () => window.removeEventListener('bestauth:expired', handleExpiredSession);
+  }, [queryClient]);
 
   const authenticate = async (username: string, password: string) => {
     const response = await loginRequest(username, password);

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Search } from 'lucide-react';
 
 import { useAuth } from '@/auth/useAuth';
 import { searchGlobal } from '@/lib/api';
@@ -15,12 +15,17 @@ const navItems: Record<UserRole, Array<{ to: string; label: string }>> = {
     { to: '/alunos', label: 'Alunos' },
   ],
   PROFESSOR: [
+    { to: '/', label: 'Desempenho' },
     { to: '/professor/disciplina', label: 'Minha Disciplina' },
     { to: '/professor/alunos', label: 'Meus Alunos' },
+    { to: '/atividades/nova', label: 'Nova Atividade' },
+    { to: '/avaliacoes', label: 'Correções pendentes' },
   ],
   ALUNO: [
+    { to: '/', label: 'Meu Desempenho' },
     { to: '/aluno/perfil', label: 'Meu Perfil' },
     { to: '/aluno/disciplinas', label: 'Minhas Disciplinas' },
+    { to: '/atividades', label: 'Atividades' },
   ],
 };
 
@@ -37,11 +42,26 @@ const entityLabels: Record<string, string> = {
   turmas: 'Turmas',
 };
 
+const mobileViewportQuery = '(max-width: 640px)';
+
+function subscribeToMobileViewport(onChange: () => void) {
+  const mediaQuery = window.matchMedia(mobileViewportQuery);
+  mediaQuery.addEventListener('change', onChange);
+  return () => mediaQuery.removeEventListener('change', onChange);
+}
+
+function getIsMobileViewport() {
+  return window.matchMedia(mobileViewportQuery).matches;
+}
+
 export function DashboardLayout() {
   const navigate = useNavigate();
   const { role, logout } = useAuth();
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useSyncExternalStore(subscribeToMobileViewport, getIsMobileViewport, () => false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const collapsed = isMobile ? !mobileMenuOpen : desktopCollapsed;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Record<string, Array<{ id: number; nome: string }>>>({
     alunos: [],
@@ -119,10 +139,25 @@ export function DashboardLayout() {
     <div className="app-shell">
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-head">
-          <button type="button" className="sidebar-toggle" onClick={() => setCollapsed((value) => !value)} aria-label="Toggle sidebar">
-            {collapsed ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={() => {
+              if (isMobile) {
+                setMobileMenuOpen((open) => !open);
+              } else {
+                setDesktopCollapsed((value) => !value);
+              }
+            }}
+            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            aria-expanded={!collapsed}
+            aria-controls="main-navigation"
+          >
+            {isMobile
+              ? collapsed ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />
+              : collapsed ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
           </button>
-          {!collapsed && (
+          {(!collapsed || isMobile) && (
             <div className="brand-block">
               <div className="brand-mark" aria-hidden="true">
                 <span>SC</span>
@@ -135,7 +170,7 @@ export function DashboardLayout() {
           )}
         </div>
 
-        <nav className="sidebar-nav" aria-label="Main navigation">
+        <nav id="main-navigation" className="sidebar-nav" aria-label="Main navigation">
           {(role ? navItems[role] : []).map((item) => (
             <NavLink
               key={item.to}
