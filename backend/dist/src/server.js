@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import { db } from './db/index.js';
 import { disciplinasService } from './services/disciplinas.js';
 import { turmasService } from './services/turmas.js';
 import { professoresService } from './services/professores.js';
@@ -11,7 +12,9 @@ import { alunosService } from './services/alunos.js';
 import { searchService } from './services/search.js';
 import { metricsService } from './services/metrics.js';
 import { accountsService } from './services/accounts.js';
-import { createDisciplinaSchema, createTurmaSchema, createProfessorSchema, createAlunoSchema, updateDisciplinaSchema, updateTurmaSchema, updateProfessorSchema, updateAlunoSchema, loginSchema, createAdminSchema, updateAdminSchema, } from './schemas/index.js';
+import { atividadesService } from './services/atividades.js';
+import { avaliacoesService } from './services/avaliacoes.js';
+import { createDisciplinaSchema, createTurmaSchema, createProfessorSchema, createAlunoSchema, updateDisciplinaSchema, updateTurmaSchema, updateProfessorSchema, updateAlunoSchema, loginSchema, createAdminSchema, updateAdminSchema, createAtividadeSchema, submitAtividadeSchema, gradeAnswerSchema, } from './schemas/index.js';
 const app = Fastify({
     logger: true,
 });
@@ -47,9 +50,12 @@ app.addHook('preHandler', async (request, reply) => {
         return;
     const isProfessorPath = request.user.role === 'PROFESSOR' && ((request.method === 'GET' && (path === '/api/alunos' || /^\/api\/alunos\/\d+$/.test(path) ||
         path === '/api/professores/me' || path === '/api/professores/me/alunos' ||
+        path === '/api/atividades' || path === '/api/avaliacoes/pendentes' || path === '/api/metrics/grades' ||
         /^\/api\/disciplinas\/\d+$/.test(path))) ||
-        (request.method === 'PUT' && /^\/api\/alunos\/\d+$/.test(path)));
-    const isAlunoPath = request.user.role === 'ALUNO' && request.method === 'GET' && (path === '/api/alunos/me' || path === '/api/alunos/me/classes');
+        (request.method === 'PUT' && /^\/api\/alunos\/\d+$/.test(path)) ||
+        (request.method === 'POST' && (path === '/api/atividades' || /^\/api\/avaliacoes\/questoes\/\d+\/corrigir$/.test(path))));
+    const isAlunoPath = request.user.role === 'ALUNO' && ((request.method === 'GET' && (path === '/api/alunos/me' || path === '/api/alunos/me/classes' || path === '/api/atividades' || path === '/api/metrics/grades')) ||
+        (request.method === 'POST' && /^\/api\/atividades\/\d+\/submeter$/.test(path)));
     if (!isProfessorPath && !isAlunoPath) {
         return reply.code(403).send({ message: 'Insufficient role permissions.' });
     }
@@ -281,6 +287,93 @@ app.get('/api/search', async (request, reply) => {
     return reply.send(results);
 });
 app.get('/api/metrics', async () => metricsService.getMetrics());
+app.post('/api/atividades', { schema: { body: createAtividadeSchema } }, async (request, reply) => {
+    if (request.user.role !== 'PROFESSOR') {
+        return reply.code(403).send({ message: 'Professor role required.' });
+    }
+    const professor = await professoresService.findByUserId(request.user.userId);
+    if (!professor)
+        return reply.code(404).send({ message: 'Professor profile not found.' });
+    const payload = request.body;
+    if (payload.disciplina_id !== professor.disciplinaId) {
+        return reply.code(403).send({ message: 'Activities can only be created for the professor assigned discipline.' });
+    }
+    const id = await atividadesService.create({
+        titulo: payload.titulo,
+        disciplinaId: payload.disciplina_id,
+        questoes: payload.questoes,
+    });
+    return reply.code(201).send(await atividadesService.findById(id));
+});
+app.get('/api/atividades', async (request, reply) => {
+    if (request.user.role === 'ADMIN') {
+        const allActivities = await db.query.atividades.findMany({
+            with: { disciplina: true, questoes: true },
+        });
+        return allActivities.map(({ questoes: questions, ...activity }) => ({
+            ...activity,
+            questoes: questions.map(({ respostaCorreta: _answer, ...question }) => question),
+        }));
+    }
+    if (request.user.role !== 'PROFESSOR' && request.user.role !== 'ALUNO') {
+        return reply.code(403).send({ message: 'Insufficient role permissions.' });
+    }
+    return atividadesService.listForUser(request.user.userId, request.user.role);
+});
+app.post('/api/atividades/:id/submeter', { schema: { body: submitAtividadeSchema } }, async (request, reply) => {
+    if (request.user.role !== 'ALUNO')
+        return reply.code(403).send({ message: 'Aluno role required.' });
+    const { id } = request.params;
+    const answers = request.body;
+    const result = await avaliacoesService.submit(request.user.userId, Number(id), answers);
+    if (!result)
+        return reply.code(500).send({ message: 'Submission was saved but could not be loaded.' });
+    if ('error' in result) {
+        if (result.error === 'STUDENT_NOT_FOUND')
+            return reply.code(404).send({ message: 'Student profile not found.' });
+        if (result.error === 'ACTIVITY_NOT_FOUND')
+            return reply.code(404).send({ message: 'Activity not found.' });
+        if (result.error === 'ALREADY_SUBMITTED')
+            return reply.code(409).send({ message: 'This activity has already been submitted by this student.' });
+        return reply.code(400).send({ message: 'Answers must include each activity question exactly once.' });
+    }
+    return reply.code(201).send(result);
+});
+app.get('/api/avaliacoes/pendentes', async (request, reply) => {
+    if (request.user.role !== 'PROFESSOR')
+        return reply.code(403).send({ message: 'Professor role required.' });
+    const professor = await professoresService.findByUserId(request.user.userId);
+    if (!professor)
+        return reply.code(404).send({ message: 'Professor profile not found.' });
+    return avaliacoesService.listPendingForDiscipline(professor.disciplinaId);
+});
+app.post('/api/avaliacoes/questoes/:id/corrigir', { schema: { body: gradeAnswerSchema } }, async (request, reply) => {
+    if (request.user.role !== 'PROFESSOR')
+        return reply.code(403).send({ message: 'Professor role required.' });
+    const professor = await professoresService.findByUserId(request.user.userId);
+    if (!professor)
+        return reply.code(404).send({ message: 'Professor profile not found.' });
+    const { id } = request.params;
+    const payload = request.body;
+    const result = await avaliacoesService.gradeAnswer(Number(id), professor.disciplinaId, payload.correta);
+    if (result && 'error' in result)
+        return reply.code(404).send({ message: 'Pending answer not found for this discipline.' });
+    if (!result)
+        return reply.code(404).send({ message: 'Pending answer not found for this discipline.' });
+    return result;
+});
+app.get('/api/metrics/grades', async (request, reply) => {
+    if (request.user.role === 'PROFESSOR') {
+        const professor = await professoresService.findByUserId(request.user.userId);
+        if (!professor)
+            return reply.code(404).send({ message: 'Professor profile not found.' });
+        return metricsService.getGradeMetricsForProfessor(professor.disciplinaId);
+    }
+    if (request.user.role === 'ALUNO') {
+        return metricsService.getGradeMetricsForStudent(request.user.userId);
+    }
+    return reply.code(403).send({ message: 'Professor or aluno role required.' });
+});
 app.put('/api/alunos/:id', {
     schema: { body: updateAlunoSchema },
 }, async (request, reply) => {

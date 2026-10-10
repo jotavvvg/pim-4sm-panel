@@ -74,6 +74,35 @@ export const updateAdminSchema = updateCredentialsSchema;
 export const updateDisciplinaSchema = createDisciplinaSchema.partial();
 export const updateTurmaSchema = createTurmaSchema.partial();
 export const updateAccountSchema = updateCredentialsSchema;
+const activityQuestionSchema = z.discriminatedUnion('tipo', [
+    z.object({
+        tipo: z.literal('MULTIPLACADA'),
+        enunciado: z.string().min(1),
+        opcoes: z.array(z.string().min(1)).min(2),
+        resposta_correta: z.string().min(1),
+    }).refine((question) => question.opcoes.includes(question.resposta_correta), {
+        message: 'Correct answer must match one of the options.',
+        path: ['resposta_correta'],
+    }),
+    z.object({
+        tipo: z.literal('DISSERTATIVA'),
+        enunciado: z.string().min(1),
+        opcoes: z.null().optional(),
+        resposta_correta: z.null().optional(),
+    }),
+]);
+export const createAtividadeSchema = z.object({
+    titulo: z.string().trim().min(1).max(255),
+    disciplina_id: z.number().int().positive(),
+    questoes: z.array(activityQuestionSchema).min(1),
+});
+export const submitAtividadeSchema = z.array(z.object({
+    questao_id: z.number().int().positive(),
+    resposta_dada: z.string(),
+})).min(1);
+export const gradeAnswerSchema = z.object({
+    correta: z.boolean(),
+});
 export const validateAlunoDisciplines = (payload) => {
     const hasSelectedDiscipline = payload.disciplina_id !== undefined || (payload.disciplina_ids && payload.disciplina_ids.length > 0);
     if (!hasSelectedDiscipline) {

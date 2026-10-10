@@ -8,6 +8,7 @@
     "build": "tsc --project tsconfig.json",
     "start": "node dist/src/server.js",
     "db:generate": "drizzle-kit generate --config=./drizzle.config.ts",
+    "db:migrate:activities": "tsx scripts/migrateActivities.ts",
     "db:push": "drizzle-kit push --config=./drizzle.config.ts --force",
     "db:seed": "tsx scripts/seed.ts",
     "test": "npm run build"
