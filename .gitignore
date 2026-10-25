@@ -9,6 +9,8 @@
 /tree.txt
 /commit.txt
 
+node_modules
+
 # Configuracoes locais: podem conter URLs, portas ou credenciais do ambiente.
 **/.env
 **/.env.*
