@@ -20,23 +20,105 @@ O projeto utiliza uma arquitetura cliente-servidor organizada em dois módulos:
 ### Estrutura do Projeto
 <!-- START_TREE -->
 ```text
-Siscol/
-├── backend/
-│   ├── src/
-│   │   ├── db/          # Conexão e schema do MySQL
-│   │   ├── schemas/     # Validação dos dados de entrada
-│   │   ├── services/    # Regras de negócio por domínio
-│   │   └── server.ts    # API HTTP, autenticação e rotas
-│   ├── drizzle/         # Migrations do banco de dados
-│   └── scripts/         # Seed e migração de atividades
-└── frontend/
-    └── vite-project/
-        └── src/
-            ├── auth/        # Contexto, papéis e proteção de rotas
-            ├── components/  # Componentes reutilizáveis da interface
-            ├── lib/         # Cliente HTTP e validações
-            ├── pages/       # Telas por fluxo do sistema
-            └── types/       # Tipos das entidades da aplicação
+.
+├── README.md
+├── backend
+│   ├── Dockerfile
+│   ├── drizzle
+│   │   ├── 0000_next_warhawk.sql
+│   │   ├── 0001_bored_amazoness.sql
+│   │   └── meta
+│   │       ├── 0000_snapshot.json
+│   │       ├── 0001_snapshot.json
+│   │       └── _journal.json
+│   ├── drizzle.config.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── scripts
+│   │   ├── migrateActivities.ts
+│   │   └── seed.ts
+│   ├── src
+│   │   ├── db
+│   │   │   ├── index.ts
+│   │   │   └── schema.ts
+│   │   ├── schemas
+│   │   │   └── index.ts
+│   │   ├── server.ts
+│   │   ├── services
+│   │   │   ├── accounts.ts
+│   │   │   ├── alunos.ts
+│   │   │   ├── atividades.ts
+│   │   │   ├── avaliacoes.ts
+│   │   │   ├── disciplinas.ts
+│   │   │   ├── metrics.ts
+│   │   │   ├── professores.ts
+│   │   │   ├── search.ts
+│   │   │   └── turmas.ts
+│   │   └── types
+│   │       └── fastify-jwt.d.ts
+│   └── tsconfig.json
+├── docker-compose.yml
+└── frontend
+    ├── package-lock.json
+    ├── package.json
+    └── vite-project
+        ├── Dockerfile
+        ├── index.html
+        ├── nginx.conf
+        ├── package-lock.json
+        ├── package.json
+        ├── public
+        │   ├── favicon.svg
+        │   └── icons.svg
+        ├── src
+        │   ├── App.css
+        │   ├── App.tsx
+        │   ├── assets
+        │   │   ├── hero.png
+        │   │   ├── react.svg
+        │   │   └── vite.svg
+        │   ├── auth
+        │   │   ├── AuthContext.tsx
+        │   │   ├── auth-context.ts
+        │   │   ├── roles.ts
+        │   │   └── useAuth.ts
+        │   ├── components
+        │   │   ├── AccountCredentialsFields.tsx
+        │   │   ├── ActionButton.tsx
+        │   │   ├── DataTable.tsx
+        │   │   ├── EmptyState.tsx
+        │   │   ├── FormField.tsx
+        │   │   ├── Layout.tsx
+        │   │   ├── Modal.tsx
+        │   │   └── ProtectedRoute.tsx
+        │   ├── index.css
+        │   ├── lib
+        │   │   ├── api.ts
+        │   │   └── validation.ts
+        │   ├── main.tsx
+        │   ├── pages
+        │   │   ├── ActivitiesListPage.tsx
+        │   │   ├── ActivityBuilderPage.tsx
+        │   │   ├── ActivityResponsePage.tsx
+        │   │   ├── AlunosPage.tsx
+        │   │   ├── DashboardPage.tsx
+        │   │   ├── DisciplinasPage.tsx
+        │   │   ├── LoginPage.tsx
+        │   │   ├── PendingEvaluationsPage.tsx
+        │   │   ├── ProfessorDisciplinePage.tsx
+        │   │   ├── ProfessorStudentsPage.tsx
+        │   │   ├── ProfessoresPage.tsx
+        │   │   ├── StudentProfilePage.tsx
+        │   │   ├── StudentSubjectsPage.tsx
+        │   │   └── TurmasPage.tsx
+        │   └── types
+        │       └── entities.ts
+        ├── tsconfig.app.json
+        ├── tsconfig.json
+        ├── tsconfig.node.json
+        └── vite.config.ts
+
+20 directories, 77 files
 ```
 <!-- END_TREE -->
 
@@ -304,6 +386,7 @@ no projeto.
 
 ### Histórico Recente de Atualizações
 <!-- START_CHANGELOG -->
+- **2026-10-25** - teste README.md (jotavvvg)
 <!-- END_CHANGELOG -->
 
 ## Licença e contexto acadêmico
