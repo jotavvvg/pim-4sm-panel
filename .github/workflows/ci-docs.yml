@@ -50,5 +50,5 @@ jobs:
       - name: Commitar documentação atualizada
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: docs: atualização automática da árvore de arquivos e changelog
+          commit_message: "docs: atualização automática da árvore de arquivos e changelog"
           file_pattern: README.md

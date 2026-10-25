@@ -17,6 +17,8 @@ As três aplicações que compõem as entregas do PIM são:
 
 O projeto utiliza uma arquitetura cliente-servidor organizada em dois módulos:
 
+### Estrutura do Projeto
+<!-- START_TREE -->
 ```text
 Siscol/
 ├── backend/
@@ -36,6 +38,7 @@ Siscol/
             ├── pages/       # Telas por fluxo do sistema
             └── types/       # Tipos das entidades da aplicação
 ```
+<!-- END_TREE -->
 
 O frontend é uma SPA (Single-Page Application) React. Durante o
 desenvolvimento, o Vite encaminha as requisições `/api` para o backend. No
@@ -299,9 +302,7 @@ Os nomes formais das disciplinas podem variar conforme a matriz curricular da
 instituição; os itens acima descrevem as competências efetivamente aplicadas
 no projeto.
 
-### Estrutura do Projeto
-<!-- START_TREE -->
-<!-- END_TREE -->
+
 
 ### Histórico Recente de Atualizações
 <!-- START_CHANGELOG -->
