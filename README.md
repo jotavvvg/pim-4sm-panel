@@ -302,8 +302,6 @@ Os nomes formais das disciplinas podem variar conforme a matriz curricular da
 instituição; os itens acima descrevem as competências efetivamente aplicadas
 no projeto.
 
-
-
 ### Histórico Recente de Atualizações
 <!-- START_CHANGELOG -->
 <!-- END_CHANGELOG -->
