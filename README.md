@@ -386,6 +386,7 @@ no projeto.
 
 ### Histórico Recente de Atualizações
 <!-- START_CHANGELOG -->
+- **2026-10-25** - node_modules e gitignore (jotavvvg)
 - **2026-10-25** - fix: corrige YAML do histórico do README (jotavvvg)
 - **2026-10-25** - docs: registra os últimos 10 commits no README (jotavvvg)
 - **2026-10-25** - docs: atualização automática da árvore de arquivos (jotavvvg)
