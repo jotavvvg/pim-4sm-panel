@@ -1,0 +1,16 @@
+# Saidas de build: arquivos regenerados por npm run build, nao sao fontes.
+/backend/dist/
+/frontend/vite-project/dist/
+
+# Dependencias: restauradas a partir dos package-lock.json com npm ci.
+**/node_modules/
+
+# Entradas temporarias do workflow: geradas durante a execucao do CI.
+/tree.txt
+/commit.txt
+
+# Configuracoes locais: podem conter URLs, portas ou credenciais do ambiente.
+**/.env
+**/.env.*
+!**/.env.example
+**/*.local

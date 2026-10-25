@@ -38,9 +38,11 @@ Siscol/
 ```
 
 O frontend é uma SPA (Single-Page Application) React. Durante o
-desenvolvimento, o Vite encaminha as requisições `/api` para o backend. A API
-Fastify acessa o MySQL por meio do Drizzle ORM e aplica autenticação baseada em
-JWT, autorização por papel e validação com Zod.
+desenvolvimento, o Vite encaminha as requisições `/api` para o backend. No
+ambiente conteinerizado, o frontend é compilado em uma imagem multi-stage e
+servido pelo Nginx, que encaminha `/api` para o serviço Fastify. A API acessa o
+MySQL por meio do Drizzle ORM e aplica autenticação baseada em JWT, autorização
+por papel e validação com Zod.
 
 ### Principais papéis
 
@@ -140,9 +142,71 @@ npm run dev
 A API ficará disponível em `http://localhost:3000`. O endpoint
 `http://localhost:3000/health` pode ser usado para verificar se ela está ativa.
 
-### 2. Configurar o frontend
+### 2. Executar com Docker Compose
 
-Abra outro terminal na raiz do repositório:
+Como alternativa à execução manual, o projeto possui um
+`docker-compose.yml` na raiz. É necessário ter o Docker Desktop iniciado.
+
+Na raiz do repositório, valide a configuração e suba os serviços:
+
+```powershell
+docker compose config
+docker compose up --build -d
+docker compose ps
+```
+
+O Compose inicia:
+
+- `api`, publicada em `http://localhost:3000`;
+- `db`, com MySQL disponível internamente para a API em `db:3306`;
+- `web`, com o frontend compilado e servido pelo Nginx em
+  `http://localhost:5173`;
+- MySQL publicado no host em `localhost:3307`, evitando conflito com uma
+  instalação local que já utilize a porta `3306`.
+
+O frontend usa o proxy do Nginx para acessar a API pela mesma origem. Dentro da
+rede do Compose, o Nginx encaminha `/api` para `api:3000`.
+
+> A porta publicada `3307` é somente para acessos ao MySQL a partir do
+> computador host. Dentro da rede do Compose, a API deve usar
+> `mysql://root:senha@db:3306/academico_db`, que já está configurado no serviço
+> `api`.
+
+Após os containers subirem, aplique o schema e os dados iniciais dentro do
+container da API:
+
+```powershell
+docker compose exec api npm run db:push
+docker compose exec api npm run db:seed
+docker compose exec api npm run db:migrate:activities
+```
+
+O `db:seed` limpa e recria os dados de demonstração. Execute-o somente em um
+banco descartável ou quando essa limpeza for desejada.
+
+Teste a API:
+
+```powershell
+Invoke-WebRequest http://localhost:3000/health
+docker compose logs -f api
+```
+
+Para parar os serviços sem remover o banco persistido:
+
+```powershell
+docker compose down
+```
+
+Para remover também o volume do MySQL e começar com um banco vazio:
+
+```powershell
+docker compose down -v
+```
+
+### 3. Executar o frontend isoladamente (opcional)
+
+Para desenvolver a interface com hot reload, abra outro terminal na raiz do
+repositório:
 
 ```powershell
 cd frontend\vite-project
@@ -150,9 +214,8 @@ npm install
 npm run dev
 ```
 
-O Vite disponibiliza a aplicação no endereço exibido no terminal, normalmente
-`http://localhost:5173`. Por padrão, as chamadas `/api` são encaminhadas para
-`http://localhost:3000`.
+O Vite disponibiliza a aplicação normalmente em `http://localhost:5173`. Nesse
+modo, as chamadas `/api` são encaminhadas para `http://localhost:3000`.
 
 Caso a API esteja em outro endereço, crie
 `frontend/vite-project/.env.local`:
@@ -201,6 +264,18 @@ npm run lint                # Verificação com Oxlint
 npm run preview             # Servir o build localmente
 ```
 
+### Docker Compose
+
+```powershell
+docker compose config       # Validar a configuração
+docker compose up --build -d # Construir e iniciar os containers
+docker compose ps           # Verificar o status dos serviços
+docker compose logs -f api  # Acompanhar logs estruturados da API
+docker compose logs -f web  # Acompanhar logs do Nginx/frontend
+docker compose down         # Parar containers, preservando o volume
+docker compose down -v      # Parar e remover o volume do MySQL
+```
+
 ## Disciplinas contempladas
 
 Por integrar diferentes camadas de uma solução de software, o Siscol
@@ -223,6 +298,14 @@ contempla os seguintes eixos acadêmicos do PIM:
 Os nomes formais das disciplinas podem variar conforme a matriz curricular da
 instituição; os itens acima descrevem as competências efetivamente aplicadas
 no projeto.
+
+### Estrutura do Projeto
+<!-- START_TREE -->
+<!-- END_TREE -->
+
+### Histórico Recente de Atualizações
+<!-- START_CHANGELOG -->
+<!-- END_CHANGELOG -->
 
 ## Licença e contexto acadêmico
 
