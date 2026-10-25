@@ -30,11 +30,23 @@ if (!changelogPattern.test(readme)) {
   throw new Error('README.md não contém as âncoras START_CHANGELOG e END_CHANGELOG.');
 }
 
+const commits = commit.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 readme = readme.replace(changelogPattern, (match, start, history, end) => {
-  if (history.split(/\r?\n/).some((line) => line.trim() === commit)) {
+  const existingCommits = new Set(
+    history.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+  );
+  const newCommits = commits.filter((line) => {
+    if (existingCommits.has(line)) {
+      return false;
+    }
+    existingCommits.add(line);
+    return true;
+  });
+  if (newCommits.length === 0) {
     return match;
   }
-  return `${start}\n${commit}${history}${end}`;
+  const separator = history.startsWith('\n') ? '' : '\n';
+  return `${start}\n${newCommits.join('\n')}${separator}${history}${end}`;
 });
 
 await writeFile(readmePath, readme);
