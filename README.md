@@ -386,6 +386,15 @@ no projeto.
 
 ### Histórico Recente de Atualizações
 <!-- START_CHANGELOG -->
+- **2026-10-25** - fix: corrige YAML do histórico do README (jotavvvg)
+- **2026-10-25** - docs: registra os últimos 10 commits no README (jotavvvg)
+- **2026-10-25** - docs: atualização automática da árvore de arquivos (jotavvvg)
+- **2026-10-25** - pipeline on:push histórico/implementação docker (jotavvvg)
+- **2026-10-24** - README.md documentação (jotavvvg)
+- **2026-10-18** - Responsividade mobile (jotavvvg)
+- **2026-10-10** - infraestrutura de usuários e CRUDL de atividades (jotavvvg)
+- **2026-10-10** - infraestrutura de usuários completa e responsividade (jotavvvg)
+- **2026-10-04** - adaptação bestauth e login, crud de usuários (jotavvvg)
 - **2026-10-25** - teste README.md (jotavvvg)
 <!-- END_CHANGELOG -->
 
