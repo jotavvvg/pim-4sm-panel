@@ -25,7 +25,11 @@ jobs:
         run: tree -I 'node_modules|.git|dist|build|tree.txt' > tree.txt
 
       - name: Obter dados do último commit
-        run: git log -10 --invert-grep --grep='^docs: atualização automática da árvore de arquivos e changelog$' --format="- **%cd** - %s (%an)" --date=short > commit.txt
+        run: |
+          git log -10 --invert-grep \
+            --grep='^docs: atualização automática da árvore de arquivos e changelog$' \
+            --format='- **%cd** - %s (%an)' \
+            --date=short > commit.txt
 
       - name: Configurar Node.js
         uses: actions/setup-node@v3
